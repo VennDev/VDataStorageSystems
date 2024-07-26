@@ -20,6 +20,8 @@
 ...
 use VDataStorageSystems;
 
+self::setPeriodTask(10 * 60); // Save all data every 10 minutes
+
 // Create a storage with the name "test.yml" and type "YAML"
 self::createStorage(
     name: $this->getDataFolder() . "test.yml",
@@ -58,7 +60,6 @@ new Async(function () {
     $data = Async::await(self::getStorage("testMYSQL")->get("test"));
     var_dump($data);
 });
-self::setPeriodTask(10 * 60); // Save all data every 10 minutes
 ```
 
 # Credits
