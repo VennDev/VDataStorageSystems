@@ -214,6 +214,7 @@ final class DataStorage
                     $this->promiseProcess = new Async(function (): void {
                         foreach ($this->data as $key => $value) {
                             $generateKey = $this->generateKey($key);
+                            Async::await($this->database->execute("DROP TABLE IF EXISTS `{$key}`"));
                             if ($this->database instanceof MySQL) {
                                 Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))"));
                             } elseif ($this->database instanceof SQLite) {
