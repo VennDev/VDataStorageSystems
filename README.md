@@ -16,6 +16,9 @@
 
 # Example some methods
 ```php
+...
+use VDataStorageSystems;
+
 // Create a storage with the name "test.yml" and type "YAML"
 self::createStorage(
     name: $this->getDataFolder() . "test.yml",
