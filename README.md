@@ -8,7 +8,7 @@
 - Supports a variety of formats such as: `.properties, .js, .json, .yml, .yaml, .sl, .txt, .list, .enum, mysql, sqlite`
 - Allow data to be queried only once to minimize over-querying!
 
-# Note
+# Notes
 - Data can be lost if you are the one who actively closes the console window or the server using the X button of the console interface. (Does not include your use of the /stop command on the console)
 
 # Virion Required
