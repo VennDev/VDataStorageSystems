@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace venndev\vdatastoragesystems;
 
+use Throwable;
 use Exception;
 use pocketmine\plugin\PluginBase;
 use vennv\vapm\System;
 use vennv\vapm\VapmPMMP;
-use Throwable;
 
 trait VDataStorageSystems
 {
@@ -23,7 +23,7 @@ trait VDataStorageSystems
         /**
          * @throws Throwable
          */
-        $functionErrorHandler = function ($error = null) use ($plugin): void {
+        $functionErrorHandler = function ($error = null): void {
             if ($error instanceof Exception) {
                 echo "Exception at: " . $error->getMessage() . "\n";
                 echo "File: " . $error->getFile() . "\n";

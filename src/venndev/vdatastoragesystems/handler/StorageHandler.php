@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace venndev\vdatastoragesystems\handler;
 
 use Exception;
+use JsonException;
 use Throwable;
 use venndev\vapmdatabase\database\mysql\MySQL;
 use venndev\vapmdatabase\database\sqlite\SQLite;
@@ -14,6 +15,9 @@ use vennv\vapm\FiberManager;
 trait StorageHandler
 {
 
+    /**
+     * @var DataStorage[] $storages
+     */
     private static array $storages = [];
 
     public static function getStorage(string $name): ?DataStorage
@@ -47,6 +51,10 @@ trait StorageHandler
         self::$storages = [];
     }
 
+    /**
+     * @throws Throwable
+     * @throws JsonException
+     */
     public static function saveAll(): void
     {
         foreach (self::$storages as $storage) $storage->save();

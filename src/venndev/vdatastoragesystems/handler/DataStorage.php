@@ -20,6 +20,8 @@ use vennv\vapm\Promise;
 final class DataStorage
 {
 
+    private const LIMIT_DATA = 4294967295;
+
     private array $data = [];
 
     private ?Async $promiseProcess = null;
@@ -135,6 +137,11 @@ final class DataStorage
         $data = $value;
     }
 
+    public function setPromiseProcess(?Async $promiseProcess): void
+    {
+        $this->promiseProcess = $promiseProcess;
+    }
+
     private function encodeData(string $data): string
     {
         if ($this->hashData === true) {
@@ -170,12 +177,12 @@ final class DataStorage
             if ($this->type !== TypeDataStorage::TYPE_MYSQL && $this->type !== TypeDataStorage::TYPE_SQLITE) {
                 $config = new Config($this->name, $this->type);
                 $data = $config->get($key, null);
-                $data ?? $this->data[$key] = $data;
+                    $data ?? $this->data[$key] = $data;
                 return $data;
             } else {
                 if ($this->database !== null) {
                     if ($this->database instanceof MySQL || $this->database instanceof SQLite) {
-                        $data =  Async::await($this->database->execute("SELECT * FROM `{$key}`"));
+                        $data = Async::await($this->database->execute("SELECT * FROM `{$key}`"));
                         try {
                             if ($data instanceof ResultQuery && $data->getStatus() === ResultQuery::SUCCESS) {
                                 $result = $data->getResult()[0] ?? $data->getResult();
@@ -202,7 +209,7 @@ final class DataStorage
      * @throws JsonException
      * @throws Throwable
      */
-    public function save(bool $async = true): void
+    public function save(): void
     {
         if ($this->type !== TypeDataStorage::TYPE_MYSQL && $this->type !== TypeDataStorage::TYPE_SQLITE) {
             $config = new Config($this->name, $this->type);
@@ -210,77 +217,45 @@ final class DataStorage
             $config->save();
         } else {
             if ($this->database !== null) {
-                if ($async && $this->promiseProcess === null) {
+                if ($this->promiseProcess === null) {
                     $this->promiseProcess = new Async(function (): void {
                         foreach ($this->data as $key => $value) {
                             $generateKey = $this->generateKey($key);
-                            Async::await($this->database->execute("DROP TABLE IF EXISTS `{$key}`"));
-                            if ($this->database instanceof MySQL) {
-                                Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))"));
-                            } elseif ($this->database instanceof SQLite) {
-                                Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)"));
-                            } else {
-                                throw new Exception("DataStorage: The database is not supported.");
+                            try {
+                                if ($this->database instanceof MySQL) {
+                                    Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))"));
+                                } elseif ($this->database instanceof SQLite) {
+                                    Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)"));
+                                }
+                            } catch (Throwable $e) {
+                                Server::getInstance()->getLogger()->error($e->getMessage());
                             }
                             $dataEncoded = $this->encodeData(json_encode($value, JSON_THROW_ON_ERROR));
-                            if (count(str_split($dataEncoded, 4294967295)) <= 1) {
+                            $i = 0;
+                            foreach (str_split($dataEncoded, self::LIMIT_DATA) as $data) {
+                                $keyData = $generateKey . "_" . $i;
                                 try {
-                                    $check = Async::await($this->database->execute("SELECT * FROM `{$key}`"));
-                                    if ($check instanceof ResultQuery && $check->getStatus() === ResultQuery::SUCCESS && is_array($check->getResult()) && count($check->getResult()) > 0) {
-                                        $result = Async::await($this->database->execute("UPDATE `{$key}` SET `value` = '{$dataEncoded}' WHERE `key` = '{$generateKey}'"));
+                                    $result = null;
+                                    $checkExists = Async::await($this->database->execute("SELECT * FROM `{$key}` WHERE `key` = '{$keyData}'"));
+                                    if ($checkExists instanceof ResultQuery && $checkExists->getStatus() === ResultQuery::SUCCESS && is_array($checkExists->getResult()) && count($checkExists->getResult()) > 0) {
+                                        $result = Async::await($this->database->execute("UPDATE `{$key}` SET `value` = '{$data}' WHERE `key` = '{$keyData}'"));
                                     } else {
                                         if ($this->database instanceof MySQL) {
-                                            $result = Async::await($this->database->execute("INSERT INTO `{$key}` (`key`, `value`) VALUES ('{$generateKey}', '{$dataEncoded}')"));
+                                            $result = Async::await($this->database->execute("INSERT IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
                                         } elseif ($this->database instanceof SQLite) {
-                                            $result = Async::await($this->database->execute("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$generateKey}', '{$dataEncoded}')"));
-                                        };
+                                            $result = Async::await($this->database->execute("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
+                                        }
                                     }
                                     if ($result instanceof ResultQuery && $result->getStatus() === ResultQuery::FAILED) throw new Exception($result->getReason());
                                 } catch (Throwable $e) {
                                     Server::getInstance()->getLogger()->error($e->getMessage());
                                 }
-                            } else {
-                                Server::getInstance()->getLogger()->warning("DataStorage: The data is too large to be saved in the database, the data will be saved in the file.");
+                                $i++;
                             }
-                            FiberManager::wait();
                         }
                         Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
                         $this->promiseProcess = null;
                     });
-                } else {
-                    foreach ($this->data as $key => $value) {
-                        $generateKey = $this->generateKey($key);
-                        if ($this->database instanceof MySQL) {
-                            $this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` TEXT PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))");
-                        } elseif ($this->database instanceof SQLite) {
-                            $this->database->execute("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)");
-                        } else {
-                            throw new Exception("DataStorage: The database is not supported.");
-                        }
-                        $dataEncoded = $this->encodeData(json_encode($value, JSON_THROW_ON_ERROR));
-                        if (count(str_split($dataEncoded, 4294967295)) <= 1) {
-                            $this->database->execute("SELECT * FROM `{$key}`")->then(function (ResultQuery $check) use ($key, $dataEncoded, $generateKey): void {
-                                try {
-                                    if ($check->getStatus() === ResultQuery::SUCCESS && is_array($check->getResult()) && count($check->getResult()) > 0) {
-                                        $this->database->execute("UPDATE `{$key}` SET `value` = '{$dataEncoded}' WHERE `key` = '{$generateKey}'")->then(function (ResultQuery $result) use ($key): void {
-                                            if ($result->getStatus() === ResultQuery::FAILED) throw new Exception($result->getReason());
-                                        });
-                                    } else {
-                                        if ($this->database instanceof MySQL) {
-                                            $this->database->execute("INSERT INTO `{$key}` (`key`, `value`) VALUES ('{$generateKey}', '{$dataEncoded}')");
-                                        } elseif ($this->database instanceof SQLite) {
-                                            $this->database->execute("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$generateKey}', '{$dataEncoded}')");
-                                        };
-                                    }
-                                } catch (Throwable $e) {
-                                    Server::getInstance()->getLogger()->error($e->getMessage());
-                                }
-                            });
-                        } else {
-                            Server::getInstance()->getLogger()->warning("DataStorage: The data is too large to be saved in the database, the data will be saved in the file.");
-                        }
-                    }
-                    Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
                 }
             }
         }
