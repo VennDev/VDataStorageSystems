@@ -13,3 +13,7 @@
 
 # Example plugins
 - [PluginExample](https://github.com/VennDev/TestVDataStorageSystems)
+
+# Credits
+- API Designer: [VennDev](https://github.com/VennDev)
+- Paypal: pnam5005@gmail.com
