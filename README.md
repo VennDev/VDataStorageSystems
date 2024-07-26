@@ -3,7 +3,7 @@
 
 # Features
 - Store batch data and update it, retrieve data quickly.
-- Store data securely even when the server shuts down unexpectedly.
+- Store data securely even when the server shuts down unexpectedly or sudden server stop.
 - Reduce the need for continuous data storage and continuous queries in `database` and local file formats such as `yml`.
 - Supports a variety of formats such as: `.properties, .js, .json, .yml, .yaml, .sl, .txt, .list, .enum, mysql, sqlite`
 - Allow data to be queried only once to minimize over-querying!
