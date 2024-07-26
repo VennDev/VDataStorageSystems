@@ -9,7 +9,7 @@
 - Allow data to be queried only once to minimize over-querying!
 
 # Note
-- Data can be lost if you are the one who actively closes the console window or the server using the X button of the console interface.
+- Data can be lost if you are the one who actively closes the console window or the server using the X button of the console interface. (Does not include your use of the /stop command on the console)
 
 # Virion Required
 - [LibVapmPMMP](https://github.com/VennDev/LibVapmPMMP)
