@@ -185,9 +185,9 @@ final class DataStorage
                         $data = Async::await($this->database->execute("SELECT * FROM `{$key}`"));
                         try {
                             if ($data instanceof ResultQuery && $data->getStatus() === ResultQuery::SUCCESS) {
-                                $result = $data->getResult()[0] ?? $data->getResult();
+                                $result = array_column($data->getResult(), "value");
                                 if (count($result) > 0) {
-                                    $this->data[$key] = json_decode($this->decodeData($result["value"]), true, 512, JSON_THROW_ON_ERROR);
+                                    $this->data[$key] = json_decode($this->decodeData(implode("", $result)), true, 512, JSON_THROW_ON_ERROR);
                                 }
                                 return $this->data[$key];
                             } else {
