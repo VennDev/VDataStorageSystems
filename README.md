@@ -10,6 +10,7 @@
 
 # Notes
 - Data can be lost if you are the one who actively closes the console window or the server using the X button of the console interface. (Does not include your use of the /stop command on the console)
+- To be safe and secure the best server closure, do something that closes in a valid manner such as the /stop command.
 
 # Virion Required
 - [LibVapmPMMP](https://github.com/VennDev/LibVapmPMMP)
