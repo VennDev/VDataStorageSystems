@@ -10,6 +10,7 @@
 
 # Virion Required
 - [LibVapmPMMP](https://github.com/VennDev/LibVapmPMMP)
+- [VapmDatabasePMMP](https://github.com/VennDev/VapmDatabasePMMP)
 
 # Example plugins
 - [PluginExample](https://github.com/VennDev/TestVDataStorageSystems)
