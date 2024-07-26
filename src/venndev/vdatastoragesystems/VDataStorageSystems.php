@@ -14,7 +14,7 @@ trait VDataStorageSystems
 {
     use handler\StorageHandler;
 
-    private static int $period_task = 1; // Default 30 minutes
+    private static int $period_task = 30 * 60; // Default 30 minutes
 
     public static function initVDataStorageSystems(PluginBase $plugin): void
     {
