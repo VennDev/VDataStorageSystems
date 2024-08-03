@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace venndev\vdatastoragesystems;
 
 use Throwable;
-use Exception;
 use pocketmine\plugin\PluginBase;
 use vennv\vapm\System;
 use vennv\vapm\VapmPMMP;
@@ -14,7 +13,7 @@ trait VDataStorageSystems
 {
     use handler\StorageHandler;
 
-    private static int $period_task = 30 * 60; // Default 30 minutes
+    private static int $period_task = 30 * 60 * 20; // Default 30 minutes
 
     public static function initVDataStorageSystems(PluginBase $plugin): void
     {
@@ -24,7 +23,7 @@ trait VDataStorageSystems
          * @throws Throwable
          */
         $functionErrorHandler = function ($error = null): void {
-            if ($error instanceof Exception) {
+            if ($error instanceof Throwable) {
                 echo "Exception at: " . $error->getMessage() . "\n";
                 echo "File: " . $error->getFile() . "\n";
                 echo "Line: " . $error->getLine() . "\n";
@@ -34,7 +33,6 @@ trait VDataStorageSystems
         };
         set_error_handler($functionErrorHandler);
         set_exception_handler($functionErrorHandler);
-
         $plugin->getScheduler()->scheduleRepeatingTask(new tasks\ServerTickTask($plugin), self::$period_task);
     }
 

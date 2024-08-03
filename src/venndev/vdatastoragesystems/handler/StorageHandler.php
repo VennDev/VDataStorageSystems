@@ -33,7 +33,7 @@ trait StorageHandler
         if (isset(self::$storages[$name])) throw new Exception("Storage with name $name already exists");
         $storage = new DataStorage($name, $type, $database, $hashData);
         self::$storages[$name] = $storage;
-        return $storage;
+        return self::$storages[$name];
     }
 
     public static function removeStorage(string $name): void
