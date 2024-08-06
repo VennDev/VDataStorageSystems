@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace venndev\vdatastoragesystems;
 
+use ErrorException;
 use Throwable;
 use pocketmine\plugin\PluginBase;
+use venndev\verrorhandler\VErrorException;
+use venndev\verrorhandler\VErrorHandler;
+use vennv\vapm\Async;
 use vennv\vapm\System;
 use vennv\vapm\VapmPMMP;
 
@@ -15,24 +19,23 @@ trait VDataStorageSystems
 
     private static int $period_task = 30 * 60 * 20; // Default 30 minutes
 
+    /**
+     * @throws VErrorException
+     */
     public static function initVDataStorageSystems(PluginBase $plugin): void
     {
         VapmPMMP::init($plugin); // Init VAPM
+        VErrorHandler::init(); // Init VErrorHandler
 
         /**
          * @throws Throwable
          */
-        $functionErrorHandler = function ($error = null): void {
-            if ($error instanceof Throwable) {
-                echo "Exception at: " . $error->getMessage() . "\n";
-                echo "File: " . $error->getFile() . "\n";
-                echo "Line: " . $error->getLine() . "\n";
-            }
-            self::saveAll();
-            System::runSingleEventLoop();
-        };
-        set_error_handler($functionErrorHandler);
-        set_exception_handler($functionErrorHandler);
+        VErrorHandler::register(function (string $errorMessage) {
+            new Async(function () use ($errorMessage) {
+                Async::await(self::saveAllAsync());
+                throw new ErrorException($errorMessage);
+            });
+        });
         $plugin->getScheduler()->scheduleRepeatingTask(new tasks\ServerTickTask($plugin), self::$period_task);
     }
 
