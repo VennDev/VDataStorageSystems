@@ -19,6 +19,7 @@
 # Virion Required
 - [LibVapmPMMP](https://github.com/VennDev/LibVapmPMMP)
 - [VapmDatabasePMMP](https://github.com/VennDev/VapmDatabasePMMP)
+- [VErrorHandler](https://github.com/VennDev/VErrorHandler)
 
 # Example plugins
 - [PluginExample](https://github.com/VennDev/TestVDataStorageSystems)
