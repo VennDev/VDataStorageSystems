@@ -222,7 +222,7 @@ final class DataStorage
      * @throws JsonException
      * @throws Throwable
      */
-    public function save(): void
+    public function saveAsync(): void
     {
         if ($this->type !== TypeDataStorage::TYPE_MYSQL && $this->type !== TypeDataStorage::TYPE_SQLITE) {
             $config = new Config($this->name, $this->type);
@@ -268,6 +268,57 @@ final class DataStorage
                     Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
                     $this->promiseProcess = null;
                 });
+            }
+        }
+    }
+
+    /**
+     * @throws JsonException
+     * @throws Throwable
+     */
+    public function save(): void
+    {
+        if ($this->type !== TypeDataStorage::TYPE_MYSQL && $this->type !== TypeDataStorage::TYPE_SQLITE) {
+            $config = new Config($this->name, $this->type);
+            $config->setAll(array_merge($config->getAll(), $this->data));
+            $config->save();
+        } else {
+            if ($this->database !== null && $this->promiseProcess === null) {
+                foreach ($this->data as $key => $value) {
+                    $generateKey = $this->generateKey($key);
+                    try {
+                        if ($this->database instanceof MySQL) {
+                            $this->database->executeSync("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))");
+                        } elseif ($this->database instanceof SQLite) {
+                            $this->database->executeSync("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)");
+                        }
+                    } catch (Throwable $e) {
+                        Server::getInstance()->getLogger()->error($e->getMessage());
+                    }
+                    $dataEncoded = $this->encodeData(json_encode($value, JSON_THROW_ON_ERROR));
+                    $i = 0;
+                    foreach (str_split($dataEncoded, self::LIMIT_DATA) as $data) {
+                        $keyData = $generateKey . "_" . $i;
+                        try {
+                            $result = null;
+                            $checkExists = $this->database->executeSync("SELECT * FROM `{$key}` WHERE `key` = '{$keyData}'");
+                            if ($checkExists instanceof ResultQuery && $checkExists->getStatus() === ResultQuery::SUCCESS && is_array($checkExists->getResult()) && count($checkExists->getResult()) > 0) {
+                                $result = $this->database->executeSync("UPDATE `{$key}` SET `value` = '{$data}' WHERE `key` = '{$keyData}'");
+                            } else {
+                                if ($this->database instanceof MySQL) {
+                                    $result = $this->database->executeSync("INSERT IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')");
+                                } elseif ($this->database instanceof SQLite) {
+                                    $result = $this->database->executeSync("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')");
+                                }
+                            }
+                            if ($result instanceof ResultQuery && $result->getStatus() === ResultQuery::FAILED) throw new Exception($result->getReason());
+                        } catch (Throwable $e) {
+                            Server::getInstance()->getLogger()->error($e->getMessage());
+                        }
+                        $i++;
+                    }
+                }
+                Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
             }
         }
     }

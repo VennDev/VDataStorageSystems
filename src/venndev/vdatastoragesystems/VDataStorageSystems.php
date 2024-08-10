@@ -9,8 +9,6 @@ use Throwable;
 use pocketmine\plugin\PluginBase;
 use venndev\verrorhandler\VErrorException;
 use venndev\verrorhandler\VErrorHandler;
-use vennv\vapm\Async;
-use vennv\vapm\System;
 use vennv\vapm\VapmPMMP;
 
 trait VDataStorageSystems
@@ -22,7 +20,7 @@ trait VDataStorageSystems
     /**
      * @throws VErrorException
      */
-    public static function initVDataStorageSystems(PluginBase $plugin): void
+    public static function initVDataStorageSystems(PluginBase $plugin, object $dataStorage): void
     {
         VapmPMMP::init($plugin); // Init VAPM
         VErrorHandler::init(); // Init VErrorHandler
@@ -31,12 +29,11 @@ trait VDataStorageSystems
          * @throws Throwable
          */
         VErrorHandler::register(function (string $errorMessage) {
-            new Async(function () use ($errorMessage) {
-                Async::await(self::saveAllAsync());
-                throw new ErrorException($errorMessage);
-            });
+            self::saveAll();
+            throw new ErrorException($errorMessage);
         });
-        $plugin->getScheduler()->scheduleRepeatingTask(new tasks\ServerTickTask($plugin), self::$period_task);
+
+        $plugin->getScheduler()->scheduleRepeatingTask(new tasks\ServerTickTask($plugin, $dataStorage), self::$period_task);
     }
 
     public static function setPeriodTask(int $period_task): void

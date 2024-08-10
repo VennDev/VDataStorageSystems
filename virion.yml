@@ -2,6 +2,6 @@
 authors: VennDev
 name: VDataStorageSystems
 antigen: venndev\vdatastoragesystems
-version: 1.0.7
+version: 1.0.8
 api: 5.0.0
 ...

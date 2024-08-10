@@ -17,7 +17,8 @@ final class ServerTickTask extends Task
     private ?Async $promiseProcess = null;
 
     public function __construct(
-        private readonly PluginBase $plugin
+        private readonly PluginBase $plugin,
+        private readonly object     $dataStorage
     )
     {
         //TODO: Implement __construct() method.
@@ -30,21 +31,32 @@ final class ServerTickTask extends Task
     {
         if ($this->promiseProcess === null) {
             $reflection = new ReflectionClass($this->plugin);
-            $traits = $reflection->getTraits();
-            if (isset($traits[VDataStorageSystems::class])) {
-                $this->promiseProcess = new Async(function (): void {
-                    /** @var VDataStorageSystems|PluginBase $plugin */
-                    $plugin = $this->plugin;
-                    Async::await($plugin::saveAllAsync());
-                    $this->promiseProcess = null;
-                });
+            $traitsPlugin = $reflection->getTraits();
+            $reflection = new ReflectionClass($this->dataStorage);
+            $traitsDataStorage = $reflection->getTraits();
+            $plugin = null;
+            if (isset($traitsPlugin[VDataStorageSystems::class])) {
+                $plugin = $this->plugin;
+            } elseif (isset($traitsDataStorage[VDataStorageSystems::class])) {
+                $plugin = $this->dataStorage;
             }
+            if ($plugin === null) return;
+            $this->promiseProcess = new Async(function () use ($plugin): void {
+                /** @var VDataStorageSystems|PluginBase $plugin */
+                Async::await($plugin::saveAllAsync());
+                $this->promiseProcess = null;
+            });
         }
     }
 
     public function getPlugin(): PluginBase
     {
         return $this->plugin;
+    }
+
+    public function getDataStorage(): object
+    {
+        return $this->dataStorage;
     }
 
 }

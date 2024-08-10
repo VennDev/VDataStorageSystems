@@ -67,7 +67,7 @@ trait StorageHandler
     {
         return new Async(function (): void {
             foreach (self::$storages as $storage) {
-                $storage->save();
+                $storage->saveAsync();
                 FiberManager::wait();
             }
         });
