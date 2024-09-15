@@ -7,12 +7,14 @@ namespace venndev\vdatastoragesystems\handler;
 use Exception;
 use JsonException;
 use Throwable;
+use Generator;
 use pocketmine\Server;
 use pocketmine\utils\Config;
 use venndev\vapmdatabase\database\mysql\MySQL;
 use venndev\vapmdatabase\database\ResultQuery;
 use venndev\vapmdatabase\database\sqlite\SQLite;
 use venndev\vdatastoragesystems\utils\TypeDataStorage;
+use vennv\vapm\EventLoop;
 use vennv\vapm\FiberManager;
 use vennv\vapm\Async;
 use vennv\vapm\Promise;
@@ -46,9 +48,11 @@ final class DataStorage
         return $this->type;
     }
 
-    public function getAll(): array
+    public function getAll(): Generator
     {
-        return $this->data;
+        foreach ($this->data as $key => $value) {
+            yield $key => $value;
+        }
     }
 
     public function setData(array $data): void
@@ -231,43 +235,48 @@ final class DataStorage
         } else {
             if ($this->database !== null && $this->promiseProcess === null) {
                 $this->promiseProcess = new Async(function (): void {
-                    foreach ($this->data as $key => $value) {
-                        $generateKey = $this->generateKey($key);
-                        try {
-                            if ($this->database instanceof MySQL) {
-                                Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))"));
-                            } elseif ($this->database instanceof SQLite) {
-                                Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)"));
-                            }
-                        } catch (Throwable $e) {
-                            Server::getInstance()->getLogger()->error($e->getMessage());
-                        }
-                        $dataEncoded = $this->encodeData(json_encode($value, JSON_THROW_ON_ERROR));
-                        $i = 0;
-                        foreach (str_split($dataEncoded, self::LIMIT_DATA) as $data) {
-                            $keyData = $generateKey . "_" . $i;
+                    try {
+                        foreach ($this->data as $key => $value) {
+                            $generateKey = $this->generateKey($key);
                             try {
-                                $result = null;
-                                $checkExists = Async::await($this->database->execute("SELECT * FROM `{$key}` WHERE `key` = '{$keyData}'"));
-                                if ($checkExists instanceof ResultQuery && $checkExists->getStatus() === ResultQuery::SUCCESS && is_array($checkExists->getResult()) && count($checkExists->getResult()) > 0) {
-                                    $result = Async::await($this->database->execute("UPDATE `{$key}` SET `value` = '{$data}' WHERE `key` = '{$keyData}'"));
-                                } else {
-                                    if ($this->database instanceof MySQL) {
-                                        $result = Async::await($this->database->execute("INSERT IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
-                                    } elseif ($this->database instanceof SQLite) {
-                                        $result = Async::await($this->database->execute("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
-                                    }
+                                if ($this->database instanceof MySQL) {
+                                    Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS `{$key}` (`key` VARCHAR(255) PRIMARY KEY, `value` LONGTEXT UNIQUE, FULLTEXT (`value`))"));
+                                } elseif ($this->database instanceof SQLite) {
+                                    Async::await($this->database->execute("CREATE TABLE IF NOT EXISTS {$key} (key TEXT PRIMARY KEY, value TEXT UNIQUE)"));
                                 }
-                                if ($result instanceof ResultQuery && $result->getStatus() === ResultQuery::FAILED) throw new Exception($result->getReason());
                             } catch (Throwable $e) {
                                 Server::getInstance()->getLogger()->error($e->getMessage());
                             }
-                            $i++;
+                            $dataEncoded = $this->encodeData(json_encode($value, JSON_THROW_ON_ERROR));
+                            $i = 0;
+                            foreach (str_split($dataEncoded, self::LIMIT_DATA) as $data) {
+                                $keyData = $generateKey . "_" . $i;
+                                try {
+                                    $result = null;
+                                    $checkExists = Async::await($this->database->execute("SELECT * FROM `{$key}` WHERE `key` = '{$keyData}'"));
+                                    if ($checkExists instanceof ResultQuery && $checkExists->getStatus() === ResultQuery::SUCCESS && is_array($checkExists->getResult()) && count($checkExists->getResult()) > 0) {
+                                        $result = Async::await($this->database->execute("UPDATE `{$key}` SET `value` = '{$data}' WHERE `key` = '{$keyData}'"));
+                                    } else {
+                                        if ($this->database instanceof MySQL) {
+                                            $result = Async::await($this->database->execute("INSERT IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
+                                        } elseif ($this->database instanceof SQLite) {
+                                            $result = Async::await($this->database->execute("INSERT OR IGNORE INTO `{$key}` (`key`, `value`) VALUES ('{$keyData}', '{$data}')"));
+                                        }
+                                    }
+                                    if ($result instanceof ResultQuery && $result->getStatus() === ResultQuery::FAILED) throw new Exception($result->getReason());
+                                } catch (Throwable $e) {
+                                    Server::getInstance()->getLogger()->error($e->getMessage());
+                                }
+                                $i++;
+                            }
                         }
+                        Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
+                    } catch (Throwable $e) {
+                        Server::getInstance()->getLogger()->error($e->getMessage());
                     }
-                    Server::getInstance()->getLogger()->debug("DataStorage: The data has been saved successfully.");
-                    $this->promiseProcess = null;
                 });
+            } else {
+                if ($this->promiseProcess !== null && EventLoop::getQueue($this->promiseProcess->getId()) === null) $this->promiseProcess = null;
             }
         }
     }
